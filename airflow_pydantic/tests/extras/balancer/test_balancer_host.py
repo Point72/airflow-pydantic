@@ -2,6 +2,7 @@ from getpass import getuser
 
 from airflow_pydantic import BalancerConfiguration, Host, Variable
 from airflow_pydantic.airflow import PoolNotFound
+from airflow_pydantic.extras.balancer.host import UNRESOLVED_PASSWORD
 from airflow_pydantic.testing import pools, variables
 
 
@@ -66,6 +67,16 @@ class TestConfig:
         assert h.hook().remote_host == "test.local"
         assert h.hook().password is None
         assert h.hook().key_file is None
+
+    def test_load_hook_unresolvable_variable(self):
+        h = Host(name="test", username="test", password=Variable(key="test"))
+
+        with variables(side_effect=RuntimeError("no metadata database")):
+            hook = h.hook()
+
+        assert hook.username == "test"
+        assert hook.remote_host == "test.local"
+        assert hook.password == UNRESOLVED_PASSWORD
 
     def test_filter_hosts(self):
         with pools(side_effect=PoolNotFound()):

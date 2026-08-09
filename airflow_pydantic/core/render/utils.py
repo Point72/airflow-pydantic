@@ -163,6 +163,9 @@ def _build_ssh_hook_with_variable(host, call: ast.Call) -> tuple[list[ast.Import
                     level=0,
                 )
             )
+        else:
+            # Guards against emitting a hook with a missing or placeholder password
+            raise ValueError(f"Host password is variable `{host.password.key}` but the rendered ssh_hook has no password to substitute")
     return imports, call
 
 

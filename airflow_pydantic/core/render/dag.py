@@ -46,7 +46,11 @@ class DagRenderMixin:
                 dag_args[k] = ast.Constant(value=value)
 
         if self.default_args:
-            dag_default_args_imports, dag_default_args_globals, dag_default_args_values = render_base_task_args(self.default_args, raw=True)
+            dag_default_args_imports, dag_default_args_globals, dag_default_args_values = render_base_task_args(
+                self.default_args,
+                raw=True,
+                airflow_major_version=airflow_major_version,
+            )
             imports.extend(dag_default_args_imports)
             globals_.extend(dag_default_args_globals)
             dag_args["default_args"] = dag_default_args_values
@@ -55,7 +59,11 @@ class DagRenderMixin:
         dag_args = [ast.keyword(arg=k, value=v) for k, v in dag_args.items()]
 
         for task_key, task in self.tasks.items():
-            task_imports, task_globals, task_code = task.render(raw=True, dag_from_context=True)
+            task_imports, task_globals, task_code = task.render(
+                raw=True,
+                dag_from_context=True,
+                airflow_major_version=airflow_major_version,
+            )
             imports.extend(task_imports)
             globals_.extend(task_globals)
 

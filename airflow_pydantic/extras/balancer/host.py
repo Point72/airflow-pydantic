@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import TYPE_CHECKING
 
 from pydantic import Field
@@ -10,6 +11,12 @@ if TYPE_CHECKING:
 
 
 __all__ = ("Host",)
+
+_log = getLogger(__name__)
+
+# Stand-in for a Variable password that cannot be resolved offline. Rendering always
+# replaces it with a Variable.get call, so it must never reach a generated DAG.
+UNRESOLVED_PASSWORD = "<unresolved airflow-pydantic variable>"
 
 
 class Host(BaseModel):
@@ -51,7 +58,13 @@ class Host(BaseModel):
         if username and self.password:
             if isinstance(self.password, str):
                 return _hook(remote_host=name, username=username, password=self.password, **hook_kwargs)
-            password = self.password.get()
+            try:
+                password = self.password.get()
+            except Exception:  # noqa: BLE001
+                # No Airflow metadata database available, e.g. when generating DAG files offline.
+                # Rendering rewrites this into a Variable.get call, so the value itself is unused.
+                _log.info("Could not resolve variable %s, falling back to an unresolved password", self.password.key)
+                password = UNRESOLVED_PASSWORD
             if isinstance(password, dict):
                 # TODO
                 # Assume "password"

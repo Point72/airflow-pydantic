@@ -37,7 +37,7 @@ def test_pool_manager_dag_options_do_not_require_id_override():
     assert manager.dag.catchup is False
 
 
-def test_configured_pools_and_generated_files_are_runtime_independent():
+def test_configured_pools_and_generated_files_are_runtime_independent(monkeypatch):
     config = BalancerConfiguration(
         hosts=[Host(name="host", size=4, pool=Pool(pool="host-pool", description="Host pool"))],
         ports=[Port(host_name="host", port=22)],
@@ -49,7 +49,16 @@ def test_configured_pools_and_generated_files_are_runtime_independent():
         {"pool": "host-22", "slots": 1, "description": "Balancer pool for host(host) port(22)", "include_deferred": True},
     ]
 
-    generated = config.generated_files()
+    airflow_versions = []
+    original_render = Dag.render
+
+    def render(dag, *args, **kwargs):
+        airflow_versions.append(kwargs["airflow_major_version"])
+        return original_render(dag, *args, **kwargs)
+
+    monkeypatch.setattr(Dag, "render", render)
+    generated = config.generated_files(airflow_major_version=3)
+    assert airflow_versions == [3]
     assert set(generated) == {"custom-pools.py"}
     assert all("airflow_pydantic" not in source for source in generated.values())
     assert "sys.path" not in generated["custom-pools.py"]

@@ -62,8 +62,8 @@ class BalancerConfiguration(BaseModel):
         dag = self.pool_manager.build_dag(self)
         return [] if dag is None else [dag]
 
-    def generated_files(self):
-        return self.pool_manager.generated_files(self)
+    def generated_files(self, airflow_major_version: int = 2):
+        return self.pool_manager.generated_files(self, airflow_major_version=airflow_major_version)
 
     @model_validator(mode="after")
     def _validate(self) -> Self:

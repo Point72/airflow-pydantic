@@ -105,12 +105,15 @@ class PoolManagerConfiguration(BaseModel):
         )
         return dag
 
-    def generated_files(self, config: BalancerConfiguration) -> dict[str, str]:
+    def generated_files(self, config: BalancerConfiguration, airflow_major_version: int = 2) -> dict[str, str]:
         dag = self.build_dag(config)
         if dag is None:
             return {}
         runtime = files("airflow_pydantic.extras.balancer").joinpath("_pool_runtime.py").read_text()
-        rendered = dag.render().replace(RUNTIME_IMPORT, runtime.removeprefix(FUTURE_ANNOTATIONS_IMPORT).rstrip())
+        rendered = dag.render(airflow_major_version=airflow_major_version).replace(
+            RUNTIME_IMPORT,
+            runtime.removeprefix(FUTURE_ANNOTATIONS_IMPORT).rstrip(),
+        )
         return {f"{dag.dag_id}.py": rendered}
 
 

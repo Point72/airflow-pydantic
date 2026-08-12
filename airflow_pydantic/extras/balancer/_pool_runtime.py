@@ -76,13 +76,35 @@ def _reconcile_api(pool_plan: list[dict[str, Any]], backend: dict[str, Any], req
         name = desired["name"]
         current = request("GET", f"/pools/{quote(name, safe='')}", missing_ok=True)
         if current is None:
-            request("POST", "/pools", body=desired)
+            # the airflow 3 api names the pool field "pool", not "name"
+            request(
+                "POST",
+                "/pools",
+                body={
+                    "pool": name,
+                    "slots": desired["slots"],
+                    "description": desired["description"],
+                    "include_deferred": desired["include_deferred"],
+                },
+            )
             actions.append(f"created {name}")
             continue
 
         values = _changes(current, desired, backend.get("override_pool_size", False))
         if values:
-            request("PATCH", f"/pools/{quote(name, safe='')}", body=values)
+            # PoolPatchBody requires pool/slots/include_deferred even for a
+            # partial update, so send current merged with the changes rather
+            # than the sparse diff
+            request(
+                "PATCH",
+                f"/pools/{quote(name, safe='')}",
+                body={
+                    "pool": name,
+                    "slots": values.get("slots", current.get("slots")),
+                    "description": values.get("description", current.get("description")),
+                    "include_deferred": values.get("include_deferred", current.get("include_deferred", False)),
+                },
+            )
             actions.append(f"updated {name}: {', '.join(values)}")
         else:
             actions.append(f"unchanged {name}")

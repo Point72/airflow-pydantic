@@ -25,7 +25,7 @@ def _default_dag() -> Dag:
     return Dag(
         dag_id=DEFAULT_DAG_ID,
         description="Reconcile centrally configured Airflow pools",
-        schedule="*/5 * * * *",
+        schedule="@daily",
         start_date=datetime(2020, 1, 1, tzinfo=UTC),
         catchup=False,
         max_active_runs=1,

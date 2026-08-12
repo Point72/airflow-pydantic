@@ -1,4 +1,5 @@
-from logging import getLogger
+from contextlib import contextmanager
+from logging import CRITICAL, getLogger
 from typing import TYPE_CHECKING
 
 from pydantic import Field
@@ -17,6 +18,20 @@ _log = getLogger(__name__)
 # Stand-in for a Variable password that cannot be resolved offline. Rendering always
 # replaces it with a Variable.get call, so it must never reach a generated DAG.
 UNRESOLVED_PASSWORD = "<unresolved airflow-pydantic variable>"
+
+
+@contextmanager
+def _quiet_variable_lookup():
+    # Airflow logs a full traceback at ERROR for every secrets backend it fails to
+    # read from, before falling through to the next one. A missing or stale metadata
+    # database is expected here, so the traceback is noise rather than a failure.
+    logger = getLogger("airflow.models.variable")
+    previous = logger.level
+    logger.setLevel(CRITICAL)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous)
 
 
 class Host(BaseModel):
@@ -59,7 +74,8 @@ class Host(BaseModel):
             if isinstance(self.password, str):
                 return _hook(remote_host=name, username=username, password=self.password, **hook_kwargs)
             try:
-                password = self.password.get()
+                with _quiet_variable_lookup():
+                    password = self.password.get()
             except Exception:  # noqa: BLE001
                 # No Airflow metadata database available, e.g. when generating DAG files offline.
                 # Rendering rewrites this into a Variable.get call, so the value itself is unused.

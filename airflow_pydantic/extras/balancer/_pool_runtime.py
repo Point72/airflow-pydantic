@@ -7,7 +7,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-POOL_RUNTIME_VERSION = 1
+POOL_RUNTIME_VERSION = 0
 
 
 def reconcile_pools(pool_plan: list[dict[str, Any]], backend: dict[str, Any]) -> list[str]:
@@ -171,7 +171,15 @@ def _mwaa_request(backend: dict[str, Any]):
         kwargs = {"Name": environment_name, "Path": path, "Method": method}
         if body is not None:
             kwargs["Body"] = body
-        response = client.invoke_rest_api(**kwargs)
+        try:
+            response = client.invoke_rest_api(**kwargs)
+        except client.exceptions.RestApiClientException as error:
+            # botocore models 4xx as an exception, so the status checks below are
+            # unreachable for them and missing_ok would never fire
+            status = error.response.get("RestApiStatusCode")
+            if missing_ok and status == 404:
+                return None
+            raise RuntimeError(f"MWAA REST API request failed with HTTP {status}: {error.response.get('RestApiResponse')}") from error
         status = response["RestApiStatusCode"]
         if missing_ok and status == 404:
             return None

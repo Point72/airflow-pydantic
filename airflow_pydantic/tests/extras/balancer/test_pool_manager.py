@@ -121,8 +121,12 @@ def test_api_reconciliation_creates_updates_and_preserves_slots():
     actions = _reconcile_api(plan, {"override_pool_size": False}, request)
 
     assert actions == ["created new", "updated changed: description, include_deferred", "unchanged unchanged"]
-    request.assert_any_call("POST", "/pools", body=plan[0])
-    request.assert_any_call("PATCH", "/pools/changed", body={"description": "Configured", "include_deferred": False})
+    request.assert_any_call("POST", "/pools", body={"pool": "new", "slots": 2, "description": "New", "include_deferred": False})
+    request.assert_any_call(
+        "PATCH",
+        "/pools/changed",
+        body={"pool": "changed", "slots": 10, "description": "Configured", "include_deferred": False},
+    )
 
 
 def test_airflow2_reconciliation_runs_from_the_task():
